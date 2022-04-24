@@ -1,3 +1,4 @@
+from locale import normalize
 import pandas as pd
 import numpy as np
 from keras.models import Sequential, load_model
@@ -10,7 +11,7 @@ class MODEL:
         self.date_gap = 1
         self.offset_rate = 0.1
         self.save_name = 'lstm_model'
-        self.epoch = 50
+        self.epoch = 20
 
     def lstm_stock_model(self, shape):
         model = Sequential()
@@ -23,6 +24,16 @@ class MODEL:
         model.summary()
         return model
 
+    def normalize_xy(self, x, y = 0):
+        Max = np.max(x)
+        Min = np.min(x)
+        diff = Max - Min
+        x = (x - Min) / diff
+        if (y != 0):
+            y = (y - Min) / diff
+            return [x, y]
+        return x
+
     def training_process(self, train_file):
         df = pd.read_csv(train_file, header = None)
         train_data_count = (len(df.values) - (self.date_slice - self.date_gap) - 1) // self.date_gap
@@ -33,12 +44,18 @@ class MODEL:
             for n in range(self.date_slice):
                 each_x.append([df.values[c * self.date_gap + n][0]])
                 each_x.append([df.values[c * self.date_gap + n][3]])
-            train_x.append(each_x)
             each_y = [[df.values[c * self.date_gap + self.date_slice][0]]]
+            # each_x, each_y = self.normalize_xy(each_x, each_y)
+            train_x.append(each_x)
             train_y.append(each_y)
         train_x = np.array(train_x)
         train_y = np.array(train_y)
         return [train_x, train_y]
+
+    def compute_offset(self, model, x, y):
+        pred = model.predict(x)
+        offset = np.average(y) - np.average(pred)     # we hope (pred + offset = real) will be true
+        return offset
 
     def model_training(self, train_x, train_y):
         
@@ -48,10 +65,9 @@ class MODEL:
         offset_x = train_x[-offset_num:]
         offset_y = train_y[-offset_num:]
         model = self.lstm_stock_model(train_x.shape)
-        callback = EarlyStopping(monitor="mean_absolute_error", patience=5, verbose=1, mode="auto")
+        callback = EarlyStopping(monitor="mean_absolute_error", patience=6, verbose=1, mode="auto")
         history = model.fit(train_x, train_y, epochs=self.epoch, batch_size=5, validation_split=0.1, callbacks=[callback], shuffle=True)
-        pred_offset = model.predict(offset_x)
-        offset = np.average(offset_y) - np.average(pred_offset)     # we hope (pred + offset = real) will be true
+        offset = self.compute_offset(model, offset_x, offset_y)
         return [model, offset]
 
         # model.save(save_name)
@@ -71,6 +87,7 @@ class MODEL:
                 else:
                     each_x.append([test_df.values[d - (self.date_slice - i)][0]])
                     each_x.append([test_df.values[d - (self.date_slice - i)][3]])
+            # each_x = self.normalize_xy(each_x)
             test_x.append(each_x)
             # test_y.append([test_df.values[i][0]])
         test_x = np.array(test_x)
