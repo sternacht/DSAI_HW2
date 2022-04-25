@@ -17,6 +17,12 @@ class MODEL:
         model = Sequential()
         model.add(LSTM(512, input_shape=(shape[1], shape[2]), return_sequences=True))
         model.add(Dropout(rate=0.5))
+        model.add(LSTM(512, return_sequences=True))
+        model.add(Dropout(rate=0.5))
+        model.add(LSTM(256, return_sequences=True))
+        model.add(Dropout(rate=0.5))
+        model.add(LSTM(256, return_sequences=True))
+        model.add(Dropout(rate=0.5))
         model.add(TimeDistributed(Dense(1)))
         model.add(Flatten())
         model.add(Dense(1,activation='relu'))
@@ -65,7 +71,7 @@ class MODEL:
         offset_x = train_x[-offset_num:]
         offset_y = train_y[-offset_num:]
         model = self.lstm_stock_model(train_x.shape)
-        callback = EarlyStopping(monitor="mean_absolute_error", patience=6, verbose=1, mode="auto")
+        callback = EarlyStopping(monitor="mean_absolute_error", patience=8, verbose=1, mode="auto")
         history = model.fit(train_x, train_y, epochs=self.epoch, batch_size=5, validation_split=0.1, callbacks=[callback], shuffle=True)
         offset = self.compute_offset(model, offset_x, offset_y)
         return [model, offset]
