@@ -1,5 +1,9 @@
+#pipenv file
 *.lock
 Pipfile
 *.ini
+# test py prophet
 app2.py
 prophet.py
+# old version model
+lstm_model_old
